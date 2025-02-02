@@ -1,1 +1,121 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Creatingtesting/Rake.LuaA/refs/heads/main/By/Ezterminals"))()
+-- Configuration
+getgenv().Rake = {
+    Settings = {
+        Prediction = 0.03,
+        JumpOffSet = 0.06,
+        AimPart = "Head",
+        Misc = {
+            AutoReload = true,
+            AutoClicker = false,
+            Whitelist = {
+                UserWhitelist = false,
+                HwidWhitelist = true
+            },
+            AdvancedMisc = {
+                Desync = false,
+                AutoShoot = false,
+                AutoToxic = false
+            }
+        },
+        AntiGroundShots = true
+    }
+}
+
+-- Variables
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+local enabled = true
+
+-- Find the player closest to the crosshair
+local function findNearestEnemyToCrosshair()
+    local ClosestDistance, ClosestPlayer, ClosestPart = math.huge, nil, nil
+    local CrosshairPosition = Vector2.new(Mouse.X, Mouse.Y)  -- Position of the crosshair
+
+    for _, Player in pairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer and Player.Character then
+            local Character = Player.Character
+            local Humanoid = Character:FindFirstChild("Humanoid")
+            local Part = Character:FindFirstChild(getgenv().Rake.Settings.AimPart)
+
+            if Humanoid and Humanoid.Health > 0 and Part then
+                local PartPosition, OnScreen = Camera:WorldToViewportPoint(Part.Position)
+                if OnScreen then
+                    local PartScreenPosition = Vector2.new(PartPosition.X, PartPosition.Y)
+                    local Distance = (CrosshairPosition - PartScreenPosition).Magnitude  -- Distance to crosshair
+
+                    if Distance < ClosestDistance then
+                        ClosestPlayer = Player
+                        ClosestPart = Part
+                        ClosestDistance = Distance
+                    end
+                end
+            end
+        end
+    end
+
+    return ClosestPlayer, ClosestPart
+end
+
+-- Highlight the target player
+local function highlight(plr)
+    if plr and plr.Character then
+        for _, obj in pairs(plr.Character:GetChildren()) do
+            if obj:IsA("Highlight") then
+                obj:Destroy()
+            end
+        end
+
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = plr.Character
+        highlight.FillColor = Color3.new(1, 0, 0)  -- Red fill
+        highlight.OutlineColor = Color3.new(0, 0, 0)  -- Black outline
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+    end
+end
+
+-- Toggle the script with the C key
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.C and not gameProcessed then
+        enabled = not enabled
+        if enabled then
+            print("Script enabled")
+            local Plr, ClosestPart = findNearestEnemyToCrosshair()
+            if Plr then
+                highlight(Plr)
+            end
+        else
+            print("Script disabled")
+            for _, Player in pairs(Players:GetPlayers()) do
+                if Player.Character then
+                    for _, obj in pairs(Player.Character:GetChildren()) do
+                        if obj:IsA("Highlight") then
+                            obj:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Silent Aim
+local mt = getrawmetatable(game)
+local old = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, key)
+    if not checkcaller() and enabled and typeof(self) == "Instance" and self:IsA("Mouse") and key == "Hit" then
+        local Plr, ClosestPart = findNearestEnemyToCrosshair()
+        if Plr and ClosestPart then
+            local Position = ClosestPart.Position + (Plr.Character.Head.Velocity * getgenv().Rake.Settings.Prediction)
+            return CFrame.new(Position)
+        end
+    end
+    return old(self, key)
+end)
+
+setreadonly(mt, true)
