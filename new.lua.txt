@@ -1,8 +1,9 @@
--- Simple Local UI Library with Keybind Changer
+-- Simple Local UI Library with ZIndex Fixes
 local function CreateWindow(title)
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Parent = game.CoreGui
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
     local Frame = Instance.new("Frame")
     Frame.Parent = ScreenGui
@@ -10,6 +11,7 @@ local function CreateWindow(title)
     Frame.Position = UDim2.new(0.5, -150, 0.5, -200)
     Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     Frame.BorderSizePixel = 0
+    Frame.Visible = false -- Start hidden
 
     local Title = Instance.new("TextLabel")
     Title.Parent = Frame
@@ -22,7 +24,7 @@ local function CreateWindow(title)
     Title.Font = Enum.Font.GothamBold
     Title.BorderSizePixel = 0
 
-    return Frame
+    return Frame, ScreenGui
 end
 
 -- Configuration
@@ -31,20 +33,46 @@ getgenv().Rake = {
         Prediction = 0.03,
         SilentAimKeybind = "C",
         AntiAimKeybind = "X",
+        MenuKeybind = "Insert",
         CombinedKeybind = "V",
         UseCombinedKeybind = false,
         AntiAim = false,
-        Enabled = true
+        Enabled = true,
+        CurrentTarget = "None"
     }
 }
 
 -- Create the main window
-local Window = CreateWindow("TerminalWare V1")
+local Window, MainUI = CreateWindow("TerminalWare V1")
+local Notifications = Instance.new("ScreenGui", game.CoreGui)
+Notifications.Name = "Notifications"
+
+-- Notification System
+local function Notify(message, duration)
+    local Notification = Instance.new("TextLabel")
+    Notification.Parent = Notifications
+    Notification.Size = UDim2.new(0, 200, 0, 30)
+    Notification.Position = UDim2.new(0.5, -100, 0.9, 0)
+    Notification.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Notification.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Notification.Text = message
+    Notification.Font = Enum.Font.GothamBold
+    Notification.TextScaled = true
+    
+    task.spawn(function()
+        for i = 1, duration * 10 do
+            Notification.BackgroundTransparency = i/(duration * 10)
+            Notification.TextTransparency = i/(duration * 10)
+            task.wait(0.1)
+        end
+        Notification:Destroy()
+    end)
+end
 
 -- Keybind Options
-local KeyOptions = {"C", "X", "V", "B", "F", "Q"}
+local KeyOptions = {"C", "X", "V", "B", "F", "Q", "Insert", "Delete"}
 
--- Function to create dropdowns
+-- Fixed Dropdown System with ZIndex
 local function CreateDropdown(parent, name, currentKey, callback)
     local DropdownFrame = Instance.new("Frame")
     DropdownFrame.Parent = parent
@@ -52,6 +80,7 @@ local function CreateDropdown(parent, name, currentKey, callback)
     DropdownFrame.Position = UDim2.new(0, 5, 0, 0)
     DropdownFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     DropdownFrame.BorderSizePixel = 0
+    DropdownFrame.ZIndex = 2
 
     local DropdownLabel = Instance.new("TextLabel")
     DropdownLabel.Parent = DropdownFrame
@@ -62,6 +91,7 @@ local function CreateDropdown(parent, name, currentKey, callback)
     DropdownLabel.TextScaled = true
     DropdownLabel.Font = Enum.Font.Gotham
     DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+    DropdownLabel.ZIndex = 2
 
     local DropdownButton = Instance.new("TextButton")
     DropdownButton.Parent = DropdownFrame
@@ -72,6 +102,7 @@ local function CreateDropdown(parent, name, currentKey, callback)
     DropdownButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     DropdownButton.Font = Enum.Font.GothamBold
     DropdownButton.TextScaled = true
+    DropdownButton.ZIndex = 2
 
     local OptionsFrame = Instance.new("Frame")
     OptionsFrame.Parent = DropdownFrame
@@ -79,11 +110,13 @@ local function CreateDropdown(parent, name, currentKey, callback)
     OptionsFrame.Position = UDim2.new(0.65, 0, 1.1, 0)
     OptionsFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     OptionsFrame.Visible = false
+    OptionsFrame.ZIndex = 3
 
     local Scroll = Instance.new("ScrollingFrame")
     Scroll.Parent = OptionsFrame
     Scroll.Size = UDim2.new(1, 0, 1, 0)
     Scroll.CanvasSize = UDim2.new(0, 0, 0, #KeyOptions * 30)
+    Scroll.ZIndex = 3
 
     local UIListLayout = Instance.new("UIListLayout")
     UIListLayout.Parent = Scroll
@@ -96,11 +129,13 @@ local function CreateDropdown(parent, name, currentKey, callback)
         OptionButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
         OptionButton.Font = Enum.Font.Gotham
         OptionButton.Parent = Scroll
+        OptionButton.ZIndex = 3
 
         OptionButton.MouseButton1Click:Connect(function()
             DropdownButton.Text = key
             OptionsFrame.Visible = false
             callback(key)
+            Notify("Keybind Updated: "..key, 2)
         end)
     end
 
@@ -127,11 +162,15 @@ AddDropdown("Anti-Aim Keybind", getgenv().Rake.Settings.AntiAimKeybind, function
     getgenv().Rake.Settings.AntiAimKeybind = key
 end)
 
+AddDropdown("Menu Keybind", getgenv().Rake.Settings.MenuKeybind, function(key)
+    getgenv().Rake.Settings.MenuKeybind = key
+end)
+
 AddDropdown("Combined Keybind", getgenv().Rake.Settings.CombinedKeybind, function(key)
     getgenv().Rake.Settings.CombinedKeybind = key
 end)
 
--- Toggle for Combined Keybind
+-- Fixed Toggle System
 local function CreateToggle(parent, name, defaultValue, callback)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Parent = parent
@@ -165,6 +204,7 @@ local function CreateToggle(parent, name, defaultValue, callback)
         ToggleButton.Text = defaultValue and "ON" or "OFF"
         ToggleButton.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
         callback(defaultValue)
+        Notify(name..": "..(defaultValue and "ON" or "OFF"), 2)
     end)
 
     YOffset += 40
@@ -175,44 +215,140 @@ CreateToggle(Window, "Use Combined Keybind", getgenv().Rake.Settings.UseCombined
     getgenv().Rake.Settings.UseCombinedKeybind = value
 end)
 
--- RGB Watermark
-local watermark = Instance.new("TextLabel")
-watermark.Parent = game.CoreGui:WaitForChild("Watermark")
-watermark.Size = UDim2.new(0, 200, 0, 30)
-watermark.Position = UDim2.new(0.5, -100, 0.02, 0)
-watermark.Text = "Made by Criv"
-watermark.TextColor3 = Color3.new(1, 1, 1)
-watermark.Font = Enum.Font.GothamBold
-watermark.TextScaled = true
+-- Fixed RGB Watermark
+local WatermarkGUI = Instance.new("ScreenGui", game.CoreGui)
+WatermarkGUI.Name = "WatermarkGUI"
+WatermarkGUI.ResetOnSpawn = false
+
+local Watermark = Instance.new("TextLabel")
+Watermark.Parent = WatermarkGUI
+Watermark.Size = UDim2.new(0, 200, 0, 30)
+Watermark.Position = UDim2.new(0.02, 0, 0.95, 0)
+Watermark.BackgroundTransparency = 1
+Watermark.Text = "Made by Criv | Target: None"
+Watermark.TextColor3 = Color3.new(1, 1, 1)
+Watermark.Font = Enum.Font.GothamBold
+Watermark.TextScaled = true
+Watermark.TextXAlignment = Enum.TextXAlignment.Left
 
 task.spawn(function()
-    while true do
+    while task.wait(0.1) do
         for i = 0, 1, 0.01 do
-            watermark.TextColor3 = Color3.fromHSV(i, 1, 1)
+            Watermark.TextColor3 = Color3.fromHSV(i, 1, 1)
             task.wait(0.05)
         end
     end
 end)
 
--- Keybind Handler
+-- Fixed Silent Aim Functionality
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local function FindClosestToCrosshair()
+    local ClosestPlayer = nil
+    local ClosestDistance = math.huge
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local Character = player.Character
+            local Humanoid = Character:FindFirstChild("Humanoid")
+            local Head = Character:FindFirstChild("Head")
+            
+            if Humanoid and Humanoid.Health > 0 and Head then
+                local Pos, OnScreen = Camera:WorldToViewportPoint(Head.Position)
+                if OnScreen then
+                    local MousePos = LocalPlayer:GetMouse()
+                    local Distance = (Vector2.new(Pos.X, Pos.Y) - Vector2.new(MousePos.X, MousePos.Y)).Magnitude
+                    
+                    if Distance < ClosestDistance then
+                        ClosestDistance = Distance
+                        ClosestPlayer = player
+                    end
+                end
+            end
+        end
+    end
+    
+    if ClosestPlayer then
+        getgenv().Rake.Settings.CurrentTarget = ClosestPlayer.DisplayName
+        Watermark.Text = "Made by Criv | Target: "..ClosestPlayer.DisplayName
+    else
+        getgenv().Rake.Settings.CurrentTarget = "None"
+        Watermark.Text = "Made by Criv | Target: None"
+    end
+    
+    return ClosestPlayer
+end
+
+-- Fixed Silent Aim Metatable Hook
+local mt = getrawmetatable(game)
+local old = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, key)
+    if not checkcaller() and getgenv().Rake.Settings.Enabled and typeof(self) == "Instance" and self:IsA("Mouse") and key == "Hit" then
+        local Target = FindClosestToCrosshair()
+        if Target and Target.Character and Target.Character:FindFirstChild("Head") then
+            local Head = Target.Character.Head
+            local Prediction = getgenv().Rake.Settings.Prediction
+            return CFrame.new(Head.Position + (Head.Velocity * Prediction))
+        end
+    end
+    return old(self, key)
+end)
+
+setreadonly(mt, true)
+
+-- Fixed Anti-Aim
+local function AntiAim()
+    if not getgenv().Rake.Settings.AntiAim then return end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local RootPart = LocalPlayer.Character.HumanoidRootPart
+        RootPart.CFrame = RootPart.CFrame * CFrame.Angles(
+            math.rad(math.random(-25, 25)),
+            math.rad(math.random(-25, 25)),
+            math.rad(math.random(-25, 25))
+        )
+    end
+end
+
+game:GetService("RunService").RenderStepped:Connect(AntiAim)
+
+-- Fixed Keybind Handler
 local UIS = game:GetService("UserInputService")
+local MenuVisible = false
+
 UIS.InputBegan:Connect(function(input, processed)
     if processed then return end
-
     local key = input.KeyCode.Name
-    local settings = getgenv().Rake.Settings
-
-    if settings.UseCombinedKeybind and key == settings.CombinedKeybind then
-        settings.Enabled = not settings.Enabled
-        settings.AntiAim = settings.Enabled
-        print("Combined Toggle:", settings.Enabled and "ON" or "OFF")
-    else
-        if key == settings.SilentAimKeybind then
+    
+    -- Toggle Menu
+    if key == getgenv().Rake.Settings.MenuKeybind then
+        MenuVisible = not MenuVisible
+        Window.Visible = MenuVisible
+        Notify("Menu "..(MenuVisible and "Opened" or "Closed"), 2)
+    end
+    
+    -- Handle Other Keybinds
+    if not MenuVisible then
+        local settings = getgenv().Rake.Settings
+        
+        if settings.UseCombinedKeybind and key == settings.CombinedKeybind then
             settings.Enabled = not settings.Enabled
-            print("Silent Aim:", settings.Enabled and "ON" or "OFF")
-        elseif key == settings.AntiAimKeybind then
-            settings.AntiAim = not settings.AntiAim
-            print("Anti-Aim:", settings.AntiAim and "ON" or "OFF")
+            settings.AntiAim = settings.Enabled
+            Notify("Combined: "..(settings.Enabled and "ON" or "OFF"), 2)
+        else
+            if key == settings.SilentAimKeybind then
+                settings.Enabled = not settings.Enabled
+                Notify("Silent Aim: "..(settings.Enabled and "ON" or "OFF"), 2)
+            elseif key == settings.AntiAimKeybind then
+                settings.AntiAim = not settings.AntiAim
+                Notify("Anti-Aim: "..(settings.AntiAim and "ON" or "OFF"), 2)
+            end
         end
     end
 end)
+
+-- Initial Notification
+Notify("TerminalWare Loaded! Press "..getgenv().Rake.Settings.MenuKeybind.." to open menu", 3)
