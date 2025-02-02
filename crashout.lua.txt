@@ -3,49 +3,56 @@ local PredictionValue = 0.135 -- Original prediction value
 local TargetLock = nil
 local Enabled = false
 
--- Smooth RGB Watermark
-local WatermarkGUI = Instance.new("ScreenGui")
-WatermarkGUI.Parent = game.CoreGui
+-- Smooth RGB Notification System
+local NotificationGUI = Instance.new("ScreenGui")
+NotificationGUI.Parent = game.CoreGui
 
-local Watermark = Instance.new("TextLabel")
-Watermark.Size = UDim2.new(0, 200, 0, 30)
-Watermark.Position = UDim2.new(0.5, -100, 0.02, 0)
-Watermark.Text = "Made by Criv"
-Watermark.Font = Enum.Font.GothamBold
-Watermark.TextSize = 18
-Watermark.BackgroundTransparency = 1
-Watermark.TextColor3 = Color3.new(1, 1, 1)
-Watermark.Parent = WatermarkGUI
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Size = UDim2.new(0, 300, 0, 50)
+NotificationFrame.Position = UDim2.new(0.02, 0, 0.9, -55)
+NotificationFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+NotificationFrame.BackgroundTransparency = 0.7
+NotificationFrame.Parent = NotificationGUI
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = NotificationFrame
+
+local NotificationLabel = Instance.new("TextLabel")
+NotificationLabel.Size = UDim2.new(1, -20, 1, 0)
+NotificationLabel.Position = UDim2.new(0, 10, 0, 0)
+NotificationLabel.Text = "Made by Criv | Target: None"
+NotificationLabel.Font = Enum.Font.GothamBold
+NotificationLabel.TextColor3 = Color3.new(1, 1, 1)
+NotificationLabel.TextSize = 16
+NotificationLabel.TextXAlignment = Enum.TextXAlignment.Left
+NotificationLabel.BackgroundTransparency = 1
+NotificationLabel.Parent = NotificationFrame
 
 task.spawn(function()
     local hue = 0
     while task.wait(0.05) do
         hue = (hue + 0.01) % 1
-        Watermark.TextColor3 = Color3.fromHSV(hue, 1, 1)
+        NotificationLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
     end
 end)
 
--- Rounded Notifications
-local NotificationFrame = Instance.new("Frame")
-NotificationFrame.Size = UDim2.new(0, 250, 0, 30)
-NotificationFrame.Position = UDim2.new(0.02, 0, 0.9, -35)
-NotificationFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-NotificationFrame.BackgroundTransparency = 0.7
-NotificationFrame.Parent = WatermarkGUI
-
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 6)
-UICorner.Parent = NotificationFrame
-
-local NotificationLabel = Instance.new("TextLabel")
-NotificationLabel.Size = UDim2.new(1, -10, 1, 0)
-NotificationLabel.Position = UDim2.new(0, 10, 0, 0)
-NotificationLabel.Text = "Target: None"
-NotificationLabel.Font = Enum.Font.Gotham
-NotificationLabel.TextColor3 = Color3.new(1, 1, 1)
-NotificationLabel.TextXAlignment = Enum.TextXAlignment.Left
-NotificationLabel.BackgroundTransparency = 1
-NotificationLabel.Parent = NotificationFrame
+-- Target Highlight System
+local CurrentHighlight = nil
+local function HighlightTarget(player)
+    if CurrentHighlight then
+        CurrentHighlight:Destroy()
+    end
+    
+    if player and player.Character then
+        local Highlight = Instance.new("Highlight")
+        Highlight.FillColor = Color3.new(1, 0, 0)
+        Highlight.OutlineColor = Color3.new(0.5, 0, 0)
+        Highlight.FillTransparency = 0.5
+        Highlight.Parent = player.Character
+        CurrentHighlight = Highlight
+    end
+end
 
 -- Original Target Finding
 local function FindClosestToCrosshair()
@@ -79,7 +86,8 @@ local function UpdateTarget()
     if not TargetLock or not TargetLock.Character or not TargetLock.Character:FindFirstChild("Head") then
         TargetLock = FindClosestToCrosshair()
     end
-    NotificationLabel.Text = "Target: "..(TargetLock and TargetLock.DisplayName or "None")
+    HighlightTarget(TargetLock)
+    NotificationLabel.Text = "Made by Criv | Target: "..(TargetLock and TargetLock.DisplayName or "None")
 end
 
 -- Original Silent Aim Core
@@ -106,7 +114,12 @@ setreadonly(mt, true)
 game:GetService("UserInputService").InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.C then
         Enabled = not Enabled
-        if not Enabled then TargetLock = nil end
+        if not Enabled then
+            TargetLock = nil
+            if CurrentHighlight then
+                CurrentHighlight:Destroy()
+            end
+        end
         UpdateTarget()
     end
 end)
