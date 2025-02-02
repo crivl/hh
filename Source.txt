@@ -1,5 +1,12 @@
--- Load Rayfield UI Library (replace with the correct GitHub raw link)
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+-- Load Rayfield UI Library (ensure the link is correct)
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end)
+
+if not success or not Rayfield then
+    warn("Failed to load Rayfield UI Library!")
+    return
+end
 
 -- Create the main window
 local Window = Rayfield:CreateWindow({
@@ -82,127 +89,8 @@ local function createWatermark()
     return watermark
 end
 
+-- Create the watermark
 createWatermark()
-
--- Find the player closest to the crosshair
-local function findNearestEnemyToCrosshair()
-    local ClosestDistance, ClosestPlayer, ClosestPart = math.huge, nil, nil
-    local CrosshairPosition = Vector2.new(Mouse.X, Mouse.Y)  -- Position of the crosshair
-
-    for _, Player in pairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character then
-            local Character = Player.Character
-            local Humanoid = Character:FindFirstChild("Humanoid")
-            local Part = Character:FindFirstChild(getgenv().Rake.Settings.AimPart)
-
-            if Humanoid and Humanoid.Health > 0 and Part then
-                local PartPosition, OnScreen = Camera:WorldToViewportPoint(Part.Position)
-                if OnScreen then
-                    local PartScreenPosition = Vector2.new(PartPosition.X, PartPosition.Y)
-                    local Distance = (CrosshairPosition - PartScreenPosition).Magnitude  -- Distance to crosshair
-
-                    if Distance < ClosestDistance then
-                        ClosestPlayer = Player
-                        ClosestPart = Part
-                        ClosestDistance = Distance
-                    end
-                end
-            end
-        end
-    end
-
-    return ClosestPlayer, ClosestPart
-end
-
--- Highlight the target player
-local function highlight(plr)
-    if plr and plr.Character then
-        for _, obj in pairs(plr.Character:GetChildren()) do
-            if obj:IsA("Highlight") then
-                obj:Destroy()
-            end
-        end
-
-        local highlight = Instance.new("Highlight")
-        highlight.Parent = plr.Character
-        highlight.FillColor = Color3.new(1, 0, 0)  -- Red fill
-        highlight.OutlineColor = Color3.new(0, 0, 0)  -- Black outline
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-    end
-end
-
--- Anti-Aim Feature
-local function AntiAim()
-    if getgenv().Rake.Settings.AntiAim and LocalPlayer.Character then
-        local RootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local Head = LocalPlayer.Character:FindFirstChild("Head")
-
-        if RootPart and Head then
-            -- Randomize head and root part orientation
-            Head.CFrame = Head.CFrame * CFrame.Angles(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50))
-            RootPart.CFrame = RootPart.CFrame * CFrame.Angles(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50))
-        end
-    end
-end
-
--- Keybind System
-local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        if input.KeyCode == getgenv().Rake.Settings.SilentAimKeybind and not getgenv().Rake.Settings.UseCombinedKeybind then
-            enabled = not enabled
-            if enabled then
-                print("Silent Aim enabled")
-                local Plr, ClosestPart = findNearestEnemyToCrosshair()
-                if Plr then
-                    highlight(Plr)
-                end
-            else
-                print("Silent Aim disabled")
-                for _, Player in pairs(Players:GetPlayers()) do
-                    if Player.Character then
-                        for _, obj in pairs(Player.Character:GetChildren()) do
-                            if obj:IsA("Highlight") then
-                                obj:Destroy()
-                            end
-                        end
-                    end
-                end
-            end
-        elseif input.KeyCode == getgenv().Rake.Settings.AntiAimKeybind and not getgenv().Rake.Settings.UseCombinedKeybind then
-            getgenv().Rake.Settings.AntiAim = not getgenv().Rake.Settings.AntiAim
-            print("Anti-Aim " .. (getgenv().Rake.Settings.AntiAim and "enabled" or "disabled"))
-        elseif input.KeyCode == getgenv().Rake.Settings.CombinedKeybind and getgenv().Rake.Settings.UseCombinedKeybind then
-            enabled = not enabled
-            getgenv().Rake.Settings.AntiAim = enabled
-            print("Silent Aim and Anti-Aim " .. (enabled and "enabled" or "disabled"))
-        end
-    end
-end)
-
--- Silent Aim
-local mt = getrawmetatable(game)
-local old = mt.__index
-setreadonly(mt, false)
-
-mt.__index = newcclosure(function(self, key)
-    if not checkcaller() and enabled and typeof(self) == "Instance" and self:IsA("Mouse") and key == "Hit" then
-        local Plr, ClosestPart = findNearestEnemyToCrosshair()
-        if Plr and ClosestPart then
-            local Position = ClosestPart.Position + (Plr.Character.Head.Velocity * getgenv().Rake.Settings.Prediction)
-            return CFrame.new(Position)
-        end
-    end
-    return old(self, key)
-end)
-
-setreadonly(mt, true)
-
--- Anti-Aim Loop
-game:GetService("RunService").RenderStepped:Connect(function()
-    AntiAim()
-end)
 
 -- Create the UI
 local MainTab = Window:CreateTab("Main", 4483362458) -- Replace with your desired icon ID
