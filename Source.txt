@@ -1,3 +1,23 @@
+-- Load Rayfield UI Library (replace with the correct GitHub raw link)
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
+-- Create the main window
+local Window = Rayfield:CreateWindow({
+    Name = "TerminalWare V1",
+    LoadingTitle = "TerminalWare",
+    LoadingSubtitle = "By Ezterminals",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "TerminalWare",
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink", -- Replace with your Discord invite code
+        RememberJoins = true
+    }
+})
+
 -- Configuration
 getgenv().Rake = {
     Settings = {
@@ -17,7 +37,12 @@ getgenv().Rake = {
                 AutoToxic = false
             }
         },
-        AntiGroundShots = true
+        AntiGroundShots = true,
+        AntiAim = false, -- Added Anti-Aim toggle
+        SilentAimKeybind = Enum.KeyCode.C, -- Default keybind for Silent Aim
+        AntiAimKeybind = Enum.KeyCode.X, -- Default keybind for Anti-Aim
+        CombinedKeybind = Enum.KeyCode.V, -- Default keybind for toggling both
+        UseCombinedKeybind = false -- Toggle for using combined keybind
     }
 }
 
@@ -27,6 +52,37 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 local enabled = true
+
+-- RGB Watermark
+local function createWatermark()
+    local watermark = Instance.new("ScreenGui")
+    watermark.Name = "Watermark"
+    watermark.Parent = game.CoreGui
+    watermark.ResetOnSpawn = false
+
+    local label = Instance.new("TextLabel")
+    label.Parent = watermark
+    label.Size = UDim2.new(0, 200, 0, 30)
+    label.Position = UDim2.new(0.5, -100, 0.02, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "Made by Criv"
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.TextStrokeTransparency = 0.5
+    label.TextStrokeColor3 = Color3.new(0, 0, 0)
+
+    -- RGB Color Cycle
+    local hue = 0
+    game:GetService("RunService").RenderStepped:Connect(function()
+        hue = (hue + 0.01) % 1
+        label.TextColor3 = Color3.fromHSV(hue, 1, 1)
+    end)
+
+    return watermark
+end
+
+createWatermark()
 
 -- Find the player closest to the crosshair
 local function findNearestEnemyToCrosshair()
@@ -76,28 +132,51 @@ local function highlight(plr)
     end
 end
 
--- Toggle the script with the C key
+-- Anti-Aim Feature
+local function AntiAim()
+    if getgenv().Rake.Settings.AntiAim and LocalPlayer.Character then
+        local RootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local Head = LocalPlayer.Character:FindFirstChild("Head")
+
+        if RootPart and Head then
+            -- Randomize head and root part orientation
+            Head.CFrame = Head.CFrame * CFrame.Angles(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50))
+            RootPart.CFrame = RootPart.CFrame * CFrame.Angles(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50))
+        end
+    end
+end
+
+-- Keybind System
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.C and not gameProcessed then
-        enabled = not enabled
-        if enabled then
-            print("Script enabled")
-            local Plr, ClosestPart = findNearestEnemyToCrosshair()
-            if Plr then
-                highlight(Plr)
-            end
-        else
-            print("Script disabled")
-            for _, Player in pairs(Players:GetPlayers()) do
-                if Player.Character then
-                    for _, obj in pairs(Player.Character:GetChildren()) do
-                        if obj:IsA("Highlight") then
-                            obj:Destroy()
+    if not gameProcessed then
+        if input.KeyCode == getgenv().Rake.Settings.SilentAimKeybind and not getgenv().Rake.Settings.UseCombinedKeybind then
+            enabled = not enabled
+            if enabled then
+                print("Silent Aim enabled")
+                local Plr, ClosestPart = findNearestEnemyToCrosshair()
+                if Plr then
+                    highlight(Plr)
+                end
+            else
+                print("Silent Aim disabled")
+                for _, Player in pairs(Players:GetPlayers()) do
+                    if Player.Character then
+                        for _, obj in pairs(Player.Character:GetChildren()) do
+                            if obj:IsA("Highlight") then
+                                obj:Destroy()
+                            end
                         end
                     end
                 end
             end
+        elseif input.KeyCode == getgenv().Rake.Settings.AntiAimKeybind and not getgenv().Rake.Settings.UseCombinedKeybind then
+            getgenv().Rake.Settings.AntiAim = not getgenv().Rake.Settings.AntiAim
+            print("Anti-Aim " .. (getgenv().Rake.Settings.AntiAim and "enabled" or "disabled"))
+        elseif input.KeyCode == getgenv().Rake.Settings.CombinedKeybind and getgenv().Rake.Settings.UseCombinedKeybind then
+            enabled = not enabled
+            getgenv().Rake.Settings.AntiAim = enabled
+            print("Silent Aim and Anti-Aim " .. (enabled and "enabled" or "disabled"))
         end
     end
 end)
@@ -119,3 +198,85 @@ mt.__index = newcclosure(function(self, key)
 end)
 
 setreadonly(mt, true)
+
+-- Anti-Aim Loop
+game:GetService("RunService").RenderStepped:Connect(function()
+    AntiAim()
+end)
+
+-- Create the UI
+local MainTab = Window:CreateTab("Main", 4483362458) -- Replace with your desired icon ID
+
+-- Silent Aim Toggle
+local SilentAimToggle = MainTab:CreateToggle({
+    Name = "Enable Silent Aim",
+    CurrentValue = enabled,
+    Flag = "SilentAimToggle",
+    Callback = function(Value)
+        enabled = Value
+    end,
+})
+
+-- Anti-Aim Toggle
+local AntiAimToggle = MainTab:CreateToggle({
+    Name = "Enable Anti-Aim",
+    CurrentValue = getgenv().Rake.Settings.AntiAim,
+    Flag = "AntiAimToggle",
+    Callback = function(Value)
+        getgenv().Rake.Settings.AntiAim = Value
+    end,
+})
+
+-- Combined Keybind Toggle
+local CombinedKeybindToggle = MainTab:CreateToggle({
+    Name = "Use Combined Keybind",
+    CurrentValue = getgenv().Rake.Settings.UseCombinedKeybind,
+    Flag = "CombinedKeybindToggle",
+    Callback = function(Value)
+        getgenv().Rake.Settings.UseCombinedKeybind = Value
+    end,
+})
+
+-- Keybind Dropdowns
+local KeybindDropdowns = {
+    SilentAim = MainTab:CreateDropdown({
+        Name = "Silent Aim Keybind",
+        Options = {"C", "X", "V", "B", "F", "Q"},
+        CurrentOption = "C",
+        Flag = "SilentAimKeybind",
+        Callback = function(Option)
+            getgenv().Rake.Settings.SilentAimKeybind = Enum.KeyCode[Option]
+        end,
+    }),
+    AntiAim = MainTab:CreateDropdown({
+        Name = "Anti-Aim Keybind",
+        Options = {"C", "X", "V", "B", "F", "Q"},
+        CurrentOption = "X",
+        Flag = "AntiAimKeybind",
+        Callback = function(Option)
+            getgenv().Rake.Settings.AntiAimKeybind = Enum.KeyCode[Option]
+        end,
+    }),
+    Combined = MainTab:CreateDropdown({
+        Name = "Combined Keybind",
+        Options = {"C", "X", "V", "B", "F", "Q"},
+        CurrentOption = "V",
+        Flag = "CombinedKeybind",
+        Callback = function(Option)
+            getgenv().Rake.Settings.CombinedKeybind = Enum.KeyCode[Option]
+        end,
+    })
+}
+
+-- Prediction Slider
+local Slider = MainTab:CreateSlider({
+    Name = "Prediction",
+    Range = {0.01, 0.1},
+    Increment = 0.01,
+    Suffix = "s",
+    CurrentValue = getgenv().Rake.Settings.Prediction,
+    Flag = "PredictionSlider",
+    Callback = function(Value)
+        getgenv().Rake.Settings.Prediction = Value
+    end,
+})
