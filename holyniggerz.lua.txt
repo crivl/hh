@@ -1,0 +1,115 @@
+-- TerminalWare Ultimate by Criv
+local PredictionValue = 0.135 -- Original prediction value
+local TargetLock = nil
+local Enabled = false
+
+-- Smooth RGB Watermark
+local WatermarkGUI = Instance.new("ScreenGui")
+WatermarkGUI.Parent = game.CoreGui
+
+local Watermark = Instance.new("TextLabel")
+Watermark.Size = UDim2.new(0, 200, 0, 30)
+Watermark.Position = UDim2.new(0.5, -100, 0.02, 0)
+Watermark.Text = "Made by Criv"
+Watermark.Font = Enum.Font.GothamBold
+Watermark.TextSize = 18
+Watermark.BackgroundTransparency = 1
+Watermark.TextColor3 = Color3.new(1, 1, 1)
+Watermark.Parent = WatermarkGUI
+
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.05) do
+        hue = (hue + 0.01) % 1
+        Watermark.TextColor3 = Color3.fromHSV(hue, 1, 1)
+    end
+end)
+
+-- Rounded Notifications
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Size = UDim2.new(0, 250, 0, 30)
+NotificationFrame.Position = UDim2.new(0.02, 0, 0.9, -35)
+NotificationFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+NotificationFrame.BackgroundTransparency = 0.7
+NotificationFrame.Parent = WatermarkGUI
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 6)
+UICorner.Parent = NotificationFrame
+
+local NotificationLabel = Instance.new("TextLabel")
+NotificationLabel.Size = UDim2.new(1, -10, 1, 0)
+NotificationLabel.Position = UDim2.new(0, 10, 0, 0)
+NotificationLabel.Text = "Target: None"
+NotificationLabel.Font = Enum.Font.Gotham
+NotificationLabel.TextColor3 = Color3.new(1, 1, 1)
+NotificationLabel.TextXAlignment = Enum.TextXAlignment.Left
+NotificationLabel.BackgroundTransparency = 1
+NotificationLabel.Parent = NotificationFrame
+
+-- Original Target Finding
+local function FindClosestToCrosshair()
+    local closest = nil
+    local closestDistance = math.huge
+    local LocalPlayer = game.Players.LocalPlayer
+    local MousePos = Vector2.new(LocalPlayer:GetMouse().X, LocalPlayer:GetMouse().Y)
+    
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local char = player.Character
+            local head = char:FindFirstChild("Head")
+            if head then
+                local pos, vis = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+                if vis then
+                    local distance = (Vector2.new(pos.X, pos.Y) - MousePos).Magnitude
+                    if distance < closestDistance then
+                        closest = player
+                        closestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- Target Lock System
+local function UpdateTarget()
+    if not TargetLock or not TargetLock.Character or not TargetLock.Character:FindFirstChild("Head") then
+        TargetLock = FindClosestToCrosshair()
+    end
+    NotificationLabel.Text = "Target: "..(TargetLock and TargetLock.DisplayName or "None")
+end
+
+-- Original Silent Aim Core
+local mt = getrawmetatable(game)
+local oldIndex = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, key)
+    if not checkcaller() and Enabled and key == "Hit" and self:IsA("Mouse") then
+        UpdateTarget()
+        if TargetLock and TargetLock.Character then
+            local head = TargetLock.Character:FindFirstChild("Head")
+            if head then
+                local vel = head.Velocity * PredictionValue
+                return CFrame.new(head.Position + vel + Vector3.new(0, 0.06, 0))
+            end
+        end
+    end
+    return oldIndex(self, key)
+end)
+setreadonly(mt, true)
+
+-- Keybind Handler
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.C then
+        Enabled = not Enabled
+        if not Enabled then TargetLock = nil end
+        UpdateTarget()
+    end
+end)
+
+-- Initialization
+warn("TerminalWare Ultimate Loaded - Press C to toggle")
