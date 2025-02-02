@@ -1,24 +1,32 @@
--- Load Venux UI Library
-local success, Venux = pcall(function()
-    return loadstring(game:HttpGet('https://raw.githubusercontent.com/Stefanuk12/Venux/main/src/venux.lua'))()
-end)
+-- Simple Local UI Library
+local function CreateWindow(title)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+    ScreenGui.ResetOnSpawn = false
 
-if not success or not Venux then
-    warn("Failed to load Venux UI Library!")
-    return
+    local Frame = Instance.new("Frame")
+    Frame.Parent = ScreenGui
+    Frame.Size = UDim2.new(0, 300, 0, 200)
+    Frame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Frame.BorderSizePixel = 0
+
+    local Title = Instance.new("TextLabel")
+    Title.Parent = Frame
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Title.Text = title
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextScaled = true
+    Title.Font = Enum.Font.GothamBold
+    Title.BorderSizePixel = 0
+
+    return Frame
 end
 
 -- Create the main window
-local Window = Venux:CreateWindow({
-    Name = "TerminalWare V1",
-    LoadingTitle = "TerminalWare",
-    LoadingSubtitle = "By Ezterminals",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "TerminalWare",
-        FileName = "Config"
-    }
-})
+local Window = CreateWindow("TerminalWare V1")
 
 -- Configuration
 getgenv().Rake = {
@@ -88,71 +96,55 @@ end
 createWatermark()
 
 -- Create the UI
-local MainTab = Window:CreateTab("Main")
+local function CreateToggle(parent, name, defaultValue, callback)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Parent = parent
+    ToggleFrame.Size = UDim2.new(1, -10, 0, 30)
+    ToggleFrame.Position = UDim2.new(0, 5, 0, 40)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    ToggleFrame.BorderSizePixel = 0
+
+    local ToggleLabel = Instance.new("TextLabel")
+    ToggleLabel.Parent = ToggleFrame
+    ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    ToggleLabel.Position = UDim2.new(0, 5, 0, 0)
+    ToggleLabel.Text = name
+    ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleLabel.TextScaled = true
+    ToggleLabel.Font = Enum.Font.Gotham
+    ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Parent = ToggleFrame
+    ToggleButton.Size = UDim2.new(0.2, 0, 0.8, 0)
+    ToggleButton.Position = UDim2.new(0.75, 0, 0.1, 0)
+    ToggleButton.Text = defaultValue and "ON" or "OFF"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    ToggleButton.Font = Enum.Font.GothamBold
+    ToggleButton.TextScaled = true
+
+    ToggleButton.MouseButton1Click:Connect(function()
+        defaultValue = not defaultValue
+        ToggleButton.Text = defaultValue and "ON" or "OFF"
+        ToggleButton.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        callback(defaultValue)
+    end)
+
+    return ToggleFrame
+end
 
 -- Silent Aim Toggle
-local SilentAimToggle = MainTab:CreateToggle({
-    Name = "Enable Silent Aim",
-    CurrentValue = enabled,
-    Callback = function(Value)
-        enabled = Value
-    end,
-})
+CreateToggle(Window, "Enable Silent Aim", enabled, function(Value)
+    enabled = Value
+end)
 
 -- Anti-Aim Toggle
-local AntiAimToggle = MainTab:CreateToggle({
-    Name = "Enable Anti-Aim",
-    CurrentValue = getgenv().Rake.Settings.AntiAim,
-    Callback = function(Value)
-        getgenv().Rake.Settings.AntiAim = Value
-    end,
-})
+CreateToggle(Window, "Enable Anti-Aim", getgenv().Rake.Settings.AntiAim, function(Value)
+    getgenv().Rake.Settings.AntiAim = Value
+end)
 
 -- Combined Keybind Toggle
-local CombinedKeybindToggle = MainTab:CreateToggle({
-    Name = "Use Combined Keybind",
-    CurrentValue = getgenv().Rake.Settings.UseCombinedKeybind,
-    Callback = function(Value)
-        getgenv().Rake.Settings.UseCombinedKeybind = Value
-    end,
-})
-
--- Keybind Dropdowns
-local KeybindDropdowns = {
-    SilentAim = MainTab:CreateDropdown({
-        Name = "Silent Aim Keybind",
-        Options = {"C", "X", "V", "B", "F", "Q"},
-        CurrentOption = "C",
-        Callback = function(Option)
-            getgenv().Rake.Settings.SilentAimKeybind = Enum.KeyCode[Option]
-        end,
-    }),
-    AntiAim = MainTab:CreateDropdown({
-        Name = "Anti-Aim Keybind",
-        Options = {"C", "X", "V", "B", "F", "Q"},
-        CurrentOption = "X",
-        Callback = function(Option)
-            getgenv().Rake.Settings.AntiAimKeybind = Enum.KeyCode[Option]
-        end,
-    }),
-    Combined = MainTab:CreateDropdown({
-        Name = "Combined Keybind",
-        Options = {"C", "X", "V", "B", "F", "Q"},
-        CurrentOption = "V",
-        Callback = function(Option)
-            getgenv().Rake.Settings.CombinedKeybind = Enum.KeyCode[Option]
-        end,
-    })
-}
-
--- Prediction Slider
-local Slider = MainTab:CreateSlider({
-    Name = "Prediction",
-    Range = {0.01, 0.1},
-    Increment = 0.01,
-    Suffix = "s",
-    CurrentValue = getgenv().Rake.Settings.Prediction,
-    Callback = function(Value)
-        getgenv().Rake.Settings.Prediction = Value
-    end,
-})
+CreateToggle(Window, "Use Combined Keybind", getgenv().Rake.Settings.UseCombinedKeybind, function(Value)
+    getgenv().Rake.Settings.UseCombinedKeybind = Value
+end)
