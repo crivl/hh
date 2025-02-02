@@ -1,0 +1,218 @@
+-- Simple Local UI Library with Keybind Changer
+local function CreateWindow(title)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+    ScreenGui.ResetOnSpawn = false
+
+    local Frame = Instance.new("Frame")
+    Frame.Parent = ScreenGui
+    Frame.Size = UDim2.new(0, 300, 0, 400)
+    Frame.Position = UDim2.new(0.5, -150, 0.5, -200)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Frame.BorderSizePixel = 0
+
+    local Title = Instance.new("TextLabel")
+    Title.Parent = Frame
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Title.Text = title
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextScaled = true
+    Title.Font = Enum.Font.GothamBold
+    Title.BorderSizePixel = 0
+
+    return Frame
+end
+
+-- Configuration
+getgenv().Rake = {
+    Settings = {
+        Prediction = 0.03,
+        SilentAimKeybind = "C",
+        AntiAimKeybind = "X",
+        CombinedKeybind = "V",
+        UseCombinedKeybind = false,
+        AntiAim = false,
+        Enabled = true
+    }
+}
+
+-- Create the main window
+local Window = CreateWindow("TerminalWare V1")
+
+-- Keybind Options
+local KeyOptions = {"C", "X", "V", "B", "F", "Q"}
+
+-- Function to create dropdowns
+local function CreateDropdown(parent, name, currentKey, callback)
+    local DropdownFrame = Instance.new("Frame")
+    DropdownFrame.Parent = parent
+    DropdownFrame.Size = UDim2.new(1, -10, 0, 30)
+    DropdownFrame.Position = UDim2.new(0, 5, 0, 0)
+    DropdownFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    DropdownFrame.BorderSizePixel = 0
+
+    local DropdownLabel = Instance.new("TextLabel")
+    DropdownLabel.Parent = DropdownFrame
+    DropdownLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    DropdownLabel.Position = UDim2.new(0, 5, 0, 0)
+    DropdownLabel.Text = name
+    DropdownLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DropdownLabel.TextScaled = true
+    DropdownLabel.Font = Enum.Font.Gotham
+    DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local DropdownButton = Instance.new("TextButton")
+    DropdownButton.Parent = DropdownFrame
+    DropdownButton.Size = UDim2.new(0.3, 0, 0.8, 0)
+    DropdownButton.Position = UDim2.new(0.65, 0, 0.1, 0)
+    DropdownButton.Text = currentKey
+    DropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DropdownButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    DropdownButton.Font = Enum.Font.GothamBold
+    DropdownButton.TextScaled = true
+
+    local OptionsFrame = Instance.new("Frame")
+    OptionsFrame.Parent = DropdownFrame
+    OptionsFrame.Size = UDim2.new(0.3, 0, 0, 100)
+    OptionsFrame.Position = UDim2.new(0.65, 0, 1.1, 0)
+    OptionsFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    OptionsFrame.Visible = false
+
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Parent = OptionsFrame
+    Scroll.Size = UDim2.new(1, 0, 1, 0)
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, #KeyOptions * 30)
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = Scroll
+
+    for _, key in pairs(KeyOptions) do
+        local OptionButton = Instance.new("TextButton")
+        OptionButton.Size = UDim2.new(1, 0, 0, 25)
+        OptionButton.Text = key
+        OptionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        OptionButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        OptionButton.Font = Enum.Font.Gotham
+        OptionButton.Parent = Scroll
+
+        OptionButton.MouseButton1Click:Connect(function()
+            DropdownButton.Text = key
+            OptionsFrame.Visible = false
+            callback(key)
+        end)
+    end
+
+    DropdownButton.MouseButton1Click:Connect(function()
+        OptionsFrame.Visible = not OptionsFrame.Visible
+    end)
+
+    return DropdownFrame
+end
+
+-- Create Keybind Dropdowns
+local YOffset = 40
+local function AddDropdown(name, currentKey, callback)
+    local dropdown = CreateDropdown(Window, name, currentKey, callback)
+    dropdown.Position = UDim2.new(0, 5, 0, YOffset)
+    YOffset += 40
+end
+
+AddDropdown("Silent Aim Keybind", getgenv().Rake.Settings.SilentAimKeybind, function(key)
+    getgenv().Rake.Settings.SilentAimKeybind = key
+end)
+
+AddDropdown("Anti-Aim Keybind", getgenv().Rake.Settings.AntiAimKeybind, function(key)
+    getgenv().Rake.Settings.AntiAimKeybind = key
+end)
+
+AddDropdown("Combined Keybind", getgenv().Rake.Settings.CombinedKeybind, function(key)
+    getgenv().Rake.Settings.CombinedKeybind = key
+end)
+
+-- Toggle for Combined Keybind
+local function CreateToggle(parent, name, defaultValue, callback)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Parent = parent
+    ToggleFrame.Size = UDim2.new(1, -10, 0, 30)
+    ToggleFrame.Position = UDim2.new(0, 5, 0, YOffset)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    ToggleFrame.BorderSizePixel = 0
+
+    local ToggleLabel = Instance.new("TextLabel")
+    ToggleLabel.Parent = ToggleFrame
+    ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    ToggleLabel.Position = UDim2.new(0, 5, 0, 0)
+    ToggleLabel.Text = name
+    ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleLabel.TextScaled = true
+    ToggleLabel.Font = Enum.Font.Gotham
+    ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Parent = ToggleFrame
+    ToggleButton.Size = UDim2.new(0.2, 0, 0.8, 0)
+    ToggleButton.Position = UDim2.new(0.75, 0, 0.1, 0)
+    ToggleButton.Text = defaultValue and "ON" or "OFF"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    ToggleButton.Font = Enum.Font.GothamBold
+    ToggleButton.TextScaled = true
+
+    ToggleButton.MouseButton1Click:Connect(function()
+        defaultValue = not defaultValue
+        ToggleButton.Text = defaultValue and "ON" or "OFF"
+        ToggleButton.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        callback(defaultValue)
+    end)
+
+    YOffset += 40
+    return ToggleFrame
+end
+
+CreateToggle(Window, "Use Combined Keybind", getgenv().Rake.Settings.UseCombinedKeybind, function(value)
+    getgenv().Rake.Settings.UseCombinedKeybind = value
+end)
+
+-- RGB Watermark
+local watermark = Instance.new("TextLabel")
+watermark.Parent = game.CoreGui:WaitForChild("Watermark")
+watermark.Size = UDim2.new(0, 200, 0, 30)
+watermark.Position = UDim2.new(0.5, -100, 0.02, 0)
+watermark.Text = "Made by Criv"
+watermark.TextColor3 = Color3.new(1, 1, 1)
+watermark.Font = Enum.Font.GothamBold
+watermark.TextScaled = true
+
+task.spawn(function()
+    while true do
+        for i = 0, 1, 0.01 do
+            watermark.TextColor3 = Color3.fromHSV(i, 1, 1)
+            task.wait(0.05)
+        end
+    end
+end)
+
+-- Keybind Handler
+local UIS = game:GetService("UserInputService")
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+
+    local key = input.KeyCode.Name
+    local settings = getgenv().Rake.Settings
+
+    if settings.UseCombinedKeybind and key == settings.CombinedKeybind then
+        settings.Enabled = not settings.Enabled
+        settings.AntiAim = settings.Enabled
+        print("Combined Toggle:", settings.Enabled and "ON" or "OFF")
+    else
+        if key == settings.SilentAimKeybind then
+            settings.Enabled = not settings.Enabled
+            print("Silent Aim:", settings.Enabled and "ON" or "OFF")
+        elseif key == settings.AntiAimKeybind then
+            settings.AntiAim = not settings.AntiAim
+            print("Anti-Aim:", settings.AntiAim and "ON" or "OFF")
+        end
+    end
+end)
