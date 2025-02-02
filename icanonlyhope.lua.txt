@@ -1,0 +1,242 @@
+--[[
+    TerminalWare Premium
+    Features:
+    - Silent Aim (Closest to Crosshair)
+    - Anti-Lock Velocity System
+    - Aim Viewer Beam
+    - Target Watermark
+    - Clean Notifications
+    - Modern UI
+]]
+
+-- =============================================
+--                 UI Setup
+-- =============================================
+local function CreateWindow(title)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    local Frame = Instance.new("Frame")
+    Frame.Parent = ScreenGui
+    Frame.Size = UDim2.new(0, 300, 0, 320)
+    Frame.Position = UDim2.new(0.5, -150, 0.5, -160)
+    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Frame.BorderSizePixel = 0
+    Frame.Visible = false
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 6)
+    UICorner.Parent = Frame
+
+    local Title = Instance.new("TextLabel")
+    Title.Parent = Frame
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Text = title
+    Title.Font = Enum.Font.GothamBold
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+
+    return Frame, ScreenGui
+end
+
+-- =============================================
+--               Configuration
+-- =============================================
+getgenv().TerminalWare = {
+    Settings = {
+        Prediction = 0.12,
+        MenuKeybind = "Insert",
+        SilentAimKey = "P",
+        SwitchTargetKey = "F",
+        AntiLockKey = "X",
+        Enabled = false,
+        AntiLock = false,
+        CurrentTarget = nil,
+        AimBeamColor = Color3.fromRGB(255, 85, 85)
+    }
+}
+
+-- =============================================
+--             Core Functionality
+-- =============================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+-- Notification System
+local function Notify(message, duration)
+    local Notification = Instance.new("Frame")
+    Notification.Parent = game.CoreGui
+    Notification.Size = UDim2.new(0, 250, 0, 30)
+    Notification.Position = UDim2.new(0.02, 0, 0.4, 0)
+    Notification.BackgroundTransparency = 0.7
+    Notification.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Parent = Notification
+    Label.Size = UDim2.new(1, 0, 1, 0)
+    Label.Text = message
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.Font = Enum.Font.Gotham
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Position = UDim2.new(0, 10, 0, 0)
+
+    task.delay(duration, function()
+        for i = 1, 10 do
+            Notification.BackgroundTransparency += 0.03
+            Label.TextTransparency += 0.1
+            task.wait(0.1)
+        end
+        Notification:Destroy()
+    end)
+end
+
+-- Target Highlight System
+local AimBeam = Instance.new("Beam")
+AimBeam.Width0 = 2
+AimBeam.Width1 = 2
+AimBeam.Color = ColorSequence.new(TerminalWare.Settings.AimBeamColor)
+AimBeam.FaceCamera = true
+AimBeam.Parent = workspace.Terrain
+
+local Attachment1 = Instance.new("Attachment")
+local Attachment2 = Instance.new("Attachment")
+Attachment1.Parent = workspace.Terrain
+Attachment2.Parent = workspace.Terrain
+AimBeam.Attachment0 = Attachment1
+AimBeam.Attachment1 = Attachment2
+
+-- Target Finding Logic
+local function FindClosestToCrosshair()
+    local closestPlayer, closestDistance = nil, math.huge
+    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local humanoid = character:FindFirstChild("Humanoid")
+            local head = character:FindFirstChild("Head")
+            
+            if humanoid and humanoid.Health > 0 and head then
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local screenPos = Vector2.new(pos.X, pos.Y)
+                    local distance = (mousePos - screenPos).Magnitude
+                    
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = player
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Anti-Lock System
+local function VelocityChanger()
+    if TerminalWare.Settings.AntiLock then
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Velocity = Vector3.new(
+                math.random(-25, 25),
+                root.Velocity.Y,
+                math.random(-25, 25)
+            )
+        end
+    end
+end
+
+-- Silent Aim Metatable Hook
+local mt = getrawmetatable(game)
+local oldIndex = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, key)
+    if not checkcaller() and TerminalWare.Settings.Enabled then
+        if key == "Hit" and self:IsA("Mouse") then
+            local target = FindClosestToCrosshair()
+            if target and target.Character then
+                local head = target.Character:FindFirstChild("Head")
+                if head then
+                    TerminalWare.Settings.CurrentTarget = target
+                    return CFrame.new(head.Position + (head.Velocity * TerminalWare.Settings.Prediction))
+                end
+            end
+        end
+    end
+    return oldIndex(self, key)
+end)
+
+setreadonly(mt, true)
+
+-- =============================================
+--               Input Handling
+-- =============================================
+local UIS = game:GetService("UserInputService")
+local Window, MainUI = CreateWindow("TerminalWare Premium")
+
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    local key = input.KeyCode.Name
+    
+    -- Toggle Menu
+    if key == TerminalWare.Settings.MenuKeybind then
+        Window.Visible = not Window.Visible
+        Notify("Menu "..(Window.Visible and "Opened" or "Closed"), 2)
+    end
+    
+    -- Silent Aim Toggle
+    if key == TerminalWare.Settings.SilentAimKey then
+        TerminalWare.Settings.Enabled = not TerminalWare.Settings.Enabled
+        Notify("Silent Aim: "..(TerminalWare.Settings.Enabled and "ON" or "OFF"), 2)
+    end
+    
+    -- Switch Target
+    if key == TerminalWare.Settings.SwitchTargetKey then
+        TerminalWare.Settings.CurrentTarget = FindClosestToCrosshair()
+        if TerminalWare.Settings.CurrentTarget then
+            Notify("Switched Target: "..TerminalWare.Settings.CurrentTarget.DisplayName, 2)
+        end
+    end
+    
+    -- Anti-Lock Toggle
+    if key == TerminalWare.Settings.AntiLockKey then
+        TerminalWare.Settings.AntiLock = not TerminalWare.Settings.AntiLock
+        Notify("Anti-Lock: "..(TerminalWare.Settings.AntiLock and "ON" or "OFF"), 2)
+    end
+end)
+
+-- =============================================
+--                 Main Loop
+-- =============================================
+RunService.Heartbeat:Connect(function()
+    -- Update Aim Beam
+    if TerminalWare.Settings.Enabled and TerminalWare.Settings.CurrentTarget then
+        local char = LocalPlayer.Character
+        local targetChar = TerminalWare.Settings.CurrentTarget.Character
+        
+        if char and targetChar then
+            local gun = char:FindFirstChildWhichIsA("Tool")
+            local head = targetChar:FindFirstChild("Head")
+            
+            if gun and head then
+                AimBeam.Enabled = true
+                Attachment1.WorldPosition = gun.Handle.Position
+                Attachment2.WorldPosition = head.Position
+                return
+            end
+        end
+    end
+    AimBeam.Enabled = false
+end)
+
+RunService.Stepped:Connect(VelocityChanger)
+
+-- Initialization
+Notify("TerminalWare Loaded - Press "..TerminalWare.Settings.MenuKeybind.." to open menu", 5)
